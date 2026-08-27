@@ -1,0 +1,36 @@
+[package]
+name = "x64-disasm-cfg"
+version = "0.1.0"
+edition = "2021"
+description = "From-scratch x86-64 instruction decoder, disassembler, and CFG engine"
+license = "MIT"
+repository = "https://example.invalid/x64-disasm-cfg"
+
+[[bin]]
+name = "x64-disasm-cfg"
+path = "src/main.rs"
+
+[workspace]
+# The fuzz crate is built only via `cargo fuzz`, never as part of the main build.
+exclude = ["fuzz"]
+
+[dependencies]
+goblin = "0.8"
+petgraph = "0.6"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+# Oracle ONLY. Never referenced from src/decoder/*. See docs/adr/0002-iced-x86-as-oracle.md
+iced-x86 = "1.21"
+
+[profile.release]
+opt-level = 3
+lto = true
+panic = "abort"
+
+[profile.fuzz]
+inherits = "release"
+debug-assertions = true
+overflow-checks = true

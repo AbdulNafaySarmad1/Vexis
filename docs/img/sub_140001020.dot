@@ -1,0 +1,15 @@
+digraph "sub_140001020" {
+  labelloc="t";
+  label="sub_140001020  (entry 0x140001020, 3 blocks, CC 4)";
+  node [shape=box fontname="monospace" fontsize=10];
+  edge [fontname="monospace" fontsize=9];
+  "b140001020" [peripheries=2 label="0x140001020: endbr64\l0x140001024: test ecx, ecx\l0x140001026: je 0x140001030\l"];
+  "b140001028" [peripheries=1 label="0x140001028: sub ecx, 0x1\l0x14000102b: cmp ecx, 0x0\l0x14000102e: jne 0x140001028\l"];
+  "b140001030" [peripheries=1 label="0x140001030: ret\l"];
+  "b140001020" -> "b140001028" [label="" color=gray40 style=solid];
+  "b140001020" -> "b140001030" [label="taken" color=darkgreen style=solid];
+  "b140001028" -> "b140001030" [label="" color=gray40 style=solid];
+  "b140001028" -> "b140001028" [label="taken" color=darkgreen style=solid];
+  "exit_140001020" [shape=doublecircle label="exit"];
+  "b140001030" -> "exit_140001020" [label="ret" color=red style=dotted];
+}

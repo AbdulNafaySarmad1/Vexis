@@ -1,0 +1,31 @@
+[package]
+name = "x64-disasm-cfg-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.x64-disasm-cfg]
+path = ".."
+
+[[bin]]
+name = "decode"
+path = "fuzz_targets/decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "linear_sweep"
+path = "fuzz_targets/linear_sweep.rs"
+test = false
+doc = false
+bench = false
+
+[profile.release]
+debug = 1
