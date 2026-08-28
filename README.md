@@ -1,3 +1,5 @@
+<p align="center"><img src="dissembler.jpeg" width="200"></p>
+
 # vexis
 
 ![Build](https://img.shields.io/badge/build-passing-brightgreen)
