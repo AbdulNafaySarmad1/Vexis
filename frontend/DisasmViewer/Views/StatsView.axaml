@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DisasmViewer.ViewModels"
+             xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="750"
+             x:Class="DisasmViewer.Views.StatsView"
+             x:DataType="vm:StatsViewModel">
+
+    <Panel Margin="16">
+    <Grid RowDefinitions="Auto,Auto,*" IsVisible="{Binding HasData}">
+
+        <TextBlock Grid.Row="0" Text="Stats dashboard" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12" />
+
+        <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,16">
+            <Border Padding="12" Margin="4" CornerRadius="4" Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+                <StackPanel>
+                    <TextBlock Text="Instructions" Opacity="0.6" FontSize="12" />
+                    <TextBlock Text="{Binding InstructionTotal}" FontSize="24" FontWeight="Bold" />
+                </StackPanel>
+            </Border>
+            <Border Padding="12" Margin="4" CornerRadius="4" Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+                <StackPanel>
+                    <TextBlock Text="Functions" Opacity="0.6" FontSize="12" />
+                    <TextBlock Text="{Binding FunctionCount}" FontSize="24" FontWeight="Bold" />
+                </StackPanel>
+            </Border>
+            <Border Padding="12" Margin="4" CornerRadius="4" Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+                <StackPanel>
+                    <TextBlock Text="Avg. cyclomatic complexity" Opacity="0.6" FontSize="12" />
+                    <TextBlock Text="{Binding AverageComplexity, StringFormat='{}{0:F2}'}" FontSize="24" FontWeight="Bold" />
+                </StackPanel>
+            </Border>
+            <Border Padding="12" Margin="4" CornerRadius="4" Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+                <StackPanel>
+                    <TextBlock Text="Anti-disasm flags" Opacity="0.6" FontSize="12" />
+                    <TextBlock Text="{Binding AntiDisasmFlagCount}" FontSize="24" FontWeight="Bold" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" RowDefinitions="*,*">
+            <Border Grid.Row="0" Grid.Column="0" Padding="8" Margin="4" CornerRadius="4"
+                    Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Instruction category breakdown" FontWeight="SemiBold" Margin="4" />
+                    <lvc:PieChart Series="{Binding CategorySeries}" />
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Row="0" Grid.Column="1" Padding="8" Margin="4" CornerRadius="4"
+                    Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="CFG edge-type counts" FontWeight="SemiBold" Margin="4" />
+                    <lvc:CartesianChart Series="{Binding EdgeSeries}" XAxes="{Binding EdgeXAxes}" />
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Padding="8" Margin="4" CornerRadius="4"
+                    Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Cyclomatic complexity per function (top 20)" FontWeight="SemiBold" Margin="4" />
+                    <lvc:CartesianChart Series="{Binding ComplexitySeries}" XAxes="{Binding ComplexityXAxes}" />
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+
+    <StackPanel IsVisible="{Binding !HasData}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+        <TextBlock Text="No analysis yet" FontSize="16" HorizontalAlignment="Center" Opacity="0.7" />
+        <TextBlock Text="Pick a binary on the Run tab to get started." Opacity="0.5" HorizontalAlignment="Center" />
+    </StackPanel>
+    </Panel>
+</UserControl>

@@ -1,0 +1,217 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AnalysisResult",
+  "description": "Shape of the JSON produced by `x64-disasm-cfg analyze --formats json` (single object) and by `x64-disasm-cfg batch` (a JSON array of these). Captured from a real backend run (src/report/mod.rs, src/analysis/*, src/stats/*, src/cfg/*, src/decoder/mod.rs) against corpus/tier1_straightline/pe_o0/insertion_sort.exe on the commit tagged in this repo's history. This file documents the contract both sides of the process boundary agree on; it is not consumed by either program at runtime. See docs/adr/0005-frontend-process-boundary.md.",
+  "type": "object",
+  "required": ["tool", "version", "mode", "binary", "instructions", "basic_blocks", "edges", "functions", "anti_disasm", "stats", "decode_errors"],
+  "properties": {
+    "tool": { "type": "string", "const": "x64-disasm-cfg" },
+    "version": { "type": "string" },
+    "mode": { "type": "string", "enum": ["linear-sweep", "recursive-descent"] },
+    "binary": { "$ref": "#/definitions/BinaryMeta" },
+    "instructions": { "type": "array", "items": { "$ref": "#/definitions/Instruction" } },
+    "basic_blocks": { "type": "array", "items": { "$ref": "#/definitions/BasicBlock" } },
+    "edges": { "type": "array", "items": { "$ref": "#/definitions/Edge" } },
+    "functions": { "type": "array", "items": { "$ref": "#/definitions/Function" } },
+    "anti_disasm": { "type": "array", "items": { "$ref": "#/definitions/AntiDisasmFinding" } },
+    "stats": { "$ref": "#/definitions/Stats" },
+    "accuracy": {
+      "description": "NOT CURRENTLY EMITTED. The type exists (src/report/mod.rs: `pub accuracy: Option<AccuracyReport>`, serde `skip_serializing_if = \"Option::is_none\"`), but `pipeline::analyze` always passes `None` into `report::build`, so this key is always absent from real output today. The `batch` subcommand DOES compute mnemonic/length match percentages per binary (src/main.rs, via `analysis::oracle_accuracy::compare`), but only formats them into `summary.md`'s Markdown table — it never attaches an `AccuracyReport` back onto the per-binary object that becomes an entry in `summary.json`. The frontend works around this by parsing `summary.md`'s table (see `DisasmViewer/Services/BatchSummaryMarkdownParser.cs`) as a fallback data source. If the backend is later changed to populate this field, the frontend's `Models/AnalysisResult.cs` already has a matching `AccuracyReport` type ready to bind it directly, and `BatchSummaryMarkdownParser` can be retired in favor of it.",
+      "oneOf": [{ "$ref": "#/definitions/AccuracyReport" }, { "type": "null" }]
+    },
+    "decode_errors": { "type": "array", "items": { "$ref": "#/definitions/DecodeError" } }
+  },
+  "definitions": {
+    "BinaryMeta": {
+      "type": "object",
+      "required": ["path", "is_64", "image_base", "entry_va", "sections"],
+      "properties": {
+        "path": { "type": "string", "description": "Exactly the string passed on the command line as <input>/<dir>. The frontend always resolves this to an absolute path before invoking the backend, so this field can be trusted as absolute and reused later (e.g. to regenerate DOT output for a batch-selected binary)." },
+        "is_64": { "type": "boolean" },
+        "image_base": { "type": "integer", "minimum": 0, "description": "u64 on the Rust side; fits in a C# ulong." },
+        "entry_va": { "type": "integer", "minimum": 0 },
+        "sections": { "type": "array", "items": { "$ref": "#/definitions/SectionMeta" } }
+      }
+    },
+    "SectionMeta": {
+      "type": "object",
+      "required": ["name", "virtual_address", "virtual_size", "raw_size", "executable"],
+      "properties": {
+        "name": { "type": "string" },
+        "virtual_address": { "type": "integer", "minimum": 0 },
+        "virtual_size": { "type": "integer", "minimum": 0 },
+        "raw_size": { "type": "integer", "minimum": 0 },
+        "executable": { "type": "boolean" }
+      }
+    },
+    "FlowKind": {
+      "description": "Tagged union, serde `#[serde(tag = \"kind\", rename_all = \"snake_case\")]`. `target` is present-but-possibly-null for cond_jump/jump/call (Option<u64> serializes as a null key, never an absent one), absent for sequential/return/terminate.",
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["sequential", "cond_jump", "jump", "call", "return", "terminate"] },
+        "target": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "Instruction": {
+      "type": "object",
+      "required": ["va", "len", "bytes", "mnemonic", "operands", "category", "flow"],
+      "properties": {
+        "va": { "type": "integer", "minimum": 0 },
+        "len": { "type": "integer", "minimum": 0 },
+        "bytes": { "type": "string", "description": "Lowercase hex, no separators, e.g. \"55\" or \"4889e5\"." },
+        "mnemonic": { "type": "string" },
+        "operands": { "type": "string", "description": "May be empty string (no serde skip — always present)." },
+        "category": { "type": "string", "enum": ["data_movement", "control_flow", "arithmetic", "other"] },
+        "flow": { "$ref": "#/definitions/FlowKind" }
+      }
+    },
+    "BasicBlock": {
+      "type": "object",
+      "required": ["id", "start", "end", "instructions", "terminator"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "start": { "type": "integer", "minimum": 0 },
+        "end": { "type": "integer", "minimum": 0, "description": "Exclusive: end_va of the last instruction in the block." },
+        "instructions": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "description": "Instruction start VAs, in order." },
+        "terminator": { "$ref": "#/definitions/FlowKind" }
+      }
+    },
+    "Edge": {
+      "type": "object",
+      "required": ["from", "to", "kind"],
+      "properties": {
+        "from": { "type": "integer", "minimum": 0 },
+        "to": { "type": ["integer", "null"], "minimum": 0, "description": "null means the synthetic exit node." },
+        "kind": { "type": "string", "enum": ["fallthrough", "branch", "call", "return"] }
+      }
+    },
+    "Function": {
+      "type": "object",
+      "required": ["entry", "name", "blocks", "nodes", "edges", "instr_count", "size_bytes", "has_prologue", "cyclomatic_complexity"],
+      "properties": {
+        "entry": { "type": "integer", "minimum": 0 },
+        "name": { "type": "string", "description": "\"sub_<hex entry>\" unless the backend later resolves a real symbol name. Cross-reference against the binary's .symbols file client-side to classify user code vs CRT/runtime (see BatchSummaryMarkdownParser / symbol_filter.rs on the backend side) — this field alone does not carry that classification." },
+        "blocks": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+        "nodes": { "type": "integer", "minimum": 0 },
+        "edges": { "type": "integer", "minimum": 0 },
+        "instr_count": { "type": "integer", "minimum": 0 },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "has_prologue": { "type": "boolean" },
+        "cyclomatic_complexity": { "type": "integer", "description": "i64 on the Rust side; E - N + 2." }
+      }
+    },
+    "AntiDisasmFinding": {
+      "type": "object",
+      "required": ["kind", "va", "detail"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["jump_into_instruction", "overlapping_region", "junk_padding"] },
+        "va": { "type": "integer", "minimum": 0 },
+        "detail": { "type": "string" }
+      }
+    },
+    "DecodeError": {
+      "type": "object",
+      "required": ["va", "reason"],
+      "properties": {
+        "va": { "type": "integer", "minimum": 0 },
+        "reason": { "type": "string" }
+      }
+    },
+    "Stats": {
+      "type": "object",
+      "required": ["instructions", "basic_block_count", "avg_basic_block_size", "edges", "edge_total", "functions", "anti_disasm_flags"],
+      "properties": {
+        "instructions": { "$ref": "#/definitions/InstructionStats" },
+        "basic_block_count": { "type": "integer", "minimum": 0 },
+        "avg_basic_block_size": { "type": "number" },
+        "edges": { "$ref": "#/definitions/EdgeCounts" },
+        "edge_total": { "type": "integer", "minimum": 0 },
+        "functions": { "$ref": "#/definitions/FunctionStats" },
+        "anti_disasm_flags": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "InstructionStats": {
+      "type": "object",
+      "required": ["total", "by_category", "decode_errors", "indirect_calls", "indirect_jumps", "indirect_resolved", "indirect_unresolved"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "by_category": { "$ref": "#/definitions/CategoryBreakdown" },
+        "decode_errors": { "type": "integer", "minimum": 0 },
+        "indirect_calls": { "type": "integer", "minimum": 0 },
+        "indirect_jumps": { "type": "integer", "minimum": 0 },
+        "indirect_resolved": { "type": "integer", "minimum": 0, "description": "Always 0 today — the decoder never resolves an indirect call/jmp target (see indirect_stats() in src/analysis/anti_disasm.rs)." },
+        "indirect_unresolved": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "CategoryBreakdown": {
+      "type": "object",
+      "required": ["data_movement", "control_flow", "arithmetic", "other"],
+      "properties": {
+        "data_movement": { "type": "integer", "minimum": 0 },
+        "control_flow": { "type": "integer", "minimum": 0 },
+        "arithmetic": { "type": "integer", "minimum": 0 },
+        "other": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "EdgeCounts": {
+      "type": "object",
+      "required": ["fallthrough", "branch", "call", "return"],
+      "properties": {
+        "fallthrough": { "type": "integer", "minimum": 0 },
+        "branch": { "type": "integer", "minimum": 0 },
+        "call": { "type": "integer", "minimum": 0 },
+        "return": { "type": "integer", "minimum": 0, "description": "Rust field is named `ret` internally, serde-renamed to \"return\" (a reserved word) on the wire." }
+      }
+    },
+    "FunctionStats": {
+      "type": "object",
+      "required": ["count", "with_prologue", "avg_size_bytes", "avg_block_count", "complexity", "max_complexity", "avg_complexity"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "with_prologue": { "type": "integer", "minimum": 0 },
+        "avg_size_bytes": { "type": "number" },
+        "avg_block_count": { "type": "number" },
+        "complexity": { "type": "array", "items": { "$ref": "#/definitions/ComplexityEntry" }, "description": "One entry per function, sorted descending by cyclomatic_complexity." },
+        "max_complexity": { "type": "integer" },
+        "avg_complexity": { "type": "number" }
+      }
+    },
+    "ComplexityEntry": {
+      "type": "object",
+      "required": ["function", "entry", "cyclomatic_complexity"],
+      "properties": {
+        "function": { "type": "string" },
+        "entry": { "type": "integer", "minimum": 0 },
+        "cyclomatic_complexity": { "type": "integer" }
+      }
+    },
+    "AccuracyReport": {
+      "description": "See the top-level `accuracy` property note — this type is defined but never populated in current output.",
+      "type": "object",
+      "required": ["compared", "matched", "mnemonic_match_pct", "length_match_pct", "mismatches"],
+      "properties": {
+        "compared": { "type": "integer", "minimum": 0 },
+        "matched": { "type": "integer", "minimum": 0 },
+        "mnemonic_match_pct": { "type": "number" },
+        "length_match_pct": { "type": "number" },
+        "mismatches": { "type": "array", "items": { "$ref": "#/definitions/Mismatch" } }
+      }
+    },
+    "Mismatch": {
+      "type": "object",
+      "required": ["va", "ours_mnemonic", "ours_len", "oracle_mnemonic", "oracle_len", "reason"],
+      "properties": {
+        "va": { "type": "integer", "minimum": 0 },
+        "ours_mnemonic": { "type": "string" },
+        "ours_len": { "type": "integer", "minimum": 0 },
+        "oracle_mnemonic": { "type": "string" },
+        "oracle_len": { "type": "integer", "minimum": 0 },
+        "reason": { "type": "string", "enum": ["mnemonic_differs", "length_differs", "missing_in_ours", "extra_in_ours"] }
+      }
+    }
+  },
+  "x-batch-output-note": {
+    "description": "`x64-disasm-cfg batch <dir> --out <out>` writes <out>/summary.json as a bare JSON array of the AnalysisResult objects described above (one per binary found in <dir>), and <out>/summary.md as a human-readable Markdown table. IMPORTANT SCHEMA GAP: the Markdown table's 'Functions' and 'Max CC' columns show a user-code/total split (via symbol-file-based classification, src/analysis/symbol_filter.rs) and a 'Mnemonic %' / 'Length %' accuracy pair (via src/analysis/oracle_accuracy.rs) that are computed only for that Markdown string in src/main.rs — neither is attached back onto the AnalysisResult objects serialized into summary.json. Every entry in summary.json has the aggregate-only `stats.functions.count` / `stats.functions.max_complexity` (no user/total split) and `accuracy: null`. The frontend's Batch screen parses summary.md's table directly to recover these two numbers per binary (DisasmViewer/Services/BatchSummaryMarkdownParser.cs) since summary.json alone can't produce them without re-implementing the backend's symbol classification and oracle comparison client-side."
+  }
+}

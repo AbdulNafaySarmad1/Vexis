@@ -3,3 +3,7 @@
 /fuzz/corpus
 /fuzz/artifacts
 /out
+
+# .NET frontend
+frontend/**/bin/
+frontend/**/obj/

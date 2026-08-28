@@ -1,13 +1,22 @@
-# x64-disasm-cfg
+# vexis
 
-A from-scratch **x86-64 instruction decoder, disassembler, and Control-Flow-Graph
-engine** in Rust.
+![Build](https://img.shields.io/badge/build-passing-brightgreen)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Rust](https://img.shields.io/badge/rust-1.98%2B-orange)
+![Fuzz Tested](https://img.shields.io/badge/fuzz--tested-cargo--fuzz-critical)
 
-This is a portfolio project. The decoding logic is original code — prefixes,
-ModR/M, SIB, displacements, immediates, and the opcode map are all hand-written
-in `src/decoder/`. No third-party disassembler is used anywhere in the analysis
-path. `iced-x86` appears **only** as a dev-dependency, as a differential-testing
-oracle (see [`docs/adr/0002`](docs/adr/0002-iced-x86-as-oracle.md)).
+vexis decodes x86-64 machine code by hand — legacy and REX prefixes, ModR/M,
+SIB, RIP-relative addressing, and a real opcode map — with zero calls into
+Capstone, Zydis, or any other disassembler. It turns that decode stream into
+basic blocks, a typed control-flow graph, recovered functions, and
+anti-disassembly findings, and it tells you precisely where its own coverage
+runs out instead of quietly guessing.
+
+Every prefix byte, every ModR/M encoding, every SIB and displacement
+calculation is original code in `src/decoder/`. No third-party disassembler
+touches the analysis path. `iced-x86` shows up exactly once, as a dev-only
+differential-testing oracle used to check the decoder's output, never to
+produce it (see [`docs/adr/0002`](docs/adr/0002-iced-x86-as-oracle.md)).
 
 ```
 $ cargo run -- analyze samples/hello.exe --out out
@@ -16,6 +25,25 @@ wrote out/hello.md
 wrote 2 DOT file(s) to out/hello.dot.d
   15 instructions, 5 blocks, 2 functions, 8 edges, 4 anti-disasm flag(s)
 ```
+
+## Why this is hard
+
+x86-64 instructions aren't fixed-width. A single instruction runs anywhere
+from 1 to 15 bytes, built from an arbitrary stack of legacy prefixes
+(segment overrides, operand-size overrides, `lock`, repeat prefixes that
+double as SSE opcode selectors) topped with an optional REX byte that only
+counts at all if it sits directly before the opcode. The same ModR/M byte
+means something different depending on which prefixes came before it, and a
+SIB byte on top of that can encode a base register, an index register, a
+scale factor, and a RIP-relative displacement in one pass, sometimes with no
+base register at all. Get any of that wrong and you don't just misdecode one
+instruction — you lose sync with everything after it, because every
+downstream boundary depends on the current instruction's length being
+exactly right. Building a control-flow graph on top of that stream is its
+own problem on top of the encoding problem: real binaries mix code and data
+in the same section, pad function boundaries with `0xCC`/`0x90` runs, and
+route through function pointers and jump tables that a naive linear sweep
+will misread as straight-line code.
 
 ## What it does
 
@@ -124,12 +152,14 @@ digraph "sub_140001020" {
 
 ## Testing
 
-* **Table tests** (`tests/instruction_tests.rs::table_tests`) — one assertion per
-  encoding variant: exact mnemonic + operands + length.
+* **Table tests** (`tests/instruction_tests.rs::table_tests`) — 36 curated
+  encoding variants, one assertion each: exact mnemonic + operands + length.
 * **Differential tests** — decode with our decoder and with `iced-x86`, compare.
-  `random_bytes_length_agreement` currently reports **100% length agreement**
-  across ~100k decoded random-byte instructions where our decoder accepts the
-  input. `stats::accuracy` produces the `mnemonic_match_pct` / `length_match_pct`
+  `random_bytes_length_agreement` runs 200,000 random 16-byte windows,
+  106,527 of which decode to something both our decoder and the oracle
+  accept, and currently reports **100.00% length agreement** (106,527/106,527)
+  on that comparable set.
+  `stats::accuracy` produces the `mnemonic_match_pct` / `length_match_pct`
   / mismatch-list report used in Markdown/JSON output.
 * **Fuzzing** — `fuzz/fuzz_targets/{decode,linear_sweep}.rs` for `cargo-fuzz`.
   The decoder must never panic on arbitrary bytes and must always report a
@@ -141,6 +171,43 @@ digraph "sub_140001020" {
   ```
 
   Record crash-free run counts in [`docs/FUZZING.md`](docs/FUZZING.md).
+
+## Frontend (optional) — CLI or GUI, your choice
+
+`frontend/DisasmViewer` is an Avalonia/.NET MVVM GUI that wraps this CLI —
+pick a binary, watch it get analyzed, browse the disassembly/CFG/stats/batch
+results visually. It talks to the CLI over a process boundary (spawns it,
+reads the JSON it writes), never links against the Rust core — see
+[ADR 0005](docs/adr/0005-frontend-process-boundary.md).
+
+The CLI and GUI are two separate executables. Use whichever fits:
+
+```
+# Pure CLI — scriptable, no GUI involved
+target/release/x64-disasm-cfg analyze samples/hello.exe --out out
+
+# GUI — pick a binary, click through the tabs
+frontend/DisasmViewer/bin/Release/net10.0/.../DisasmViewer
+```
+
+`scripts/package.sh` builds both and drops them **into the same folder**, so
+a user who just unzips a release build gets both for free with zero setup —
+the GUI's `BackendLocator` checks for the CLI sitting next to it before
+anything else:
+
+```
+scripts/package.sh                    # native host platform
+scripts/package.sh linux-x64 win-x64  # cross-compiles the Rust side too,
+                                       # where a target + linker is installed
+scripts/package.sh --self-contained win-x64
+```
+
+```
+dist/linux-x64/
+  x64-disasm-cfg      <- run this directly for CLI/scripting use
+  DisasmViewer         <- launch this for the GUI
+  ...
+```
 
 ## Scope
 
@@ -158,6 +225,7 @@ resolution via the IAT, any network or API calls.
 - [ADR 0002 — iced-x86 as oracle only](docs/adr/0002-iced-x86-as-oracle.md)
 - [ADR 0003 — PE64 first](docs/adr/0003-pe-first.md)
 - [ADR 0004 — A decoder, not a wrapper](docs/adr/0004-decoder-not-wrapper.md)
+- [ADR 0005 — Frontend talks to the backend over a process boundary](docs/adr/0005-frontend-process-boundary.md)
 
 ## License
 

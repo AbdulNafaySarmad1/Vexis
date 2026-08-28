@@ -1,0 +1,113 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DisasmViewer.ViewModels"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="650"
+             x:Class="DisasmViewer.Views.BatchView"
+             x:DataType="vm:BatchViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Button.header">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="4,2" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Opacity" Value="0.75" />
+        </Style>
+        <Style Selector="Button.row">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="4,4" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="Button.row:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundListLowBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="16">
+
+        <TextBlock Grid.Row="0" Text="Batch / report browser" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12" />
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
+            <TextBox Grid.Column="0" Text="{Binding SelectedDirectory}"
+                      PlaceholderText="No corpus directory selected — click Browse…" IsReadOnly="True" />
+            <Button Grid.Column="1" Content="Browse…" Margin="8,0,0,0" Command="{Binding PickDirectoryCommand}" />
+            <Button Grid.Column="2" Content="Run batch" Classes="accent" Margin="8,0,0,0"
+                    Command="{Binding RunBatchCommand}" />
+        </Grid>
+
+        <StackPanel Grid.Row="2" Spacing="8" Margin="0,0,0,8">
+            <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsRunning}" />
+
+            <Border IsVisible="{Binding ErrorMessage, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
+                    Background="#33FF4444" BorderBrush="#FF4444" BorderThickness="1" CornerRadius="4" Padding="12">
+                <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="#FFB0B0" />
+            </Border>
+
+            <TextBlock Text="{Binding StatusMessage}" Opacity="0.7"
+                       IsVisible="{Binding StatusMessage, Converter={x:Static conv:ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <TextBox Grid.Row="3" Text="{Binding FilterText}" PlaceholderText="Filter by binary name…"
+                  Margin="0,0,0,8" IsVisible="{Binding HasData}" />
+
+        <Grid Grid.Row="4" RowDefinitions="Auto,*" IsVisible="{Binding HasData}">
+
+            <!-- Sortable header row -->
+            <Grid Grid.Row="0" ColumnDefinitions="2*,90,80,90,90,90,80,80" Margin="4,0">
+                <Button Grid.Column="0" Classes="header" Content="Binary"
+                        Command="{Binding SortByCommand}" CommandParameter="BinaryName" />
+                <Button Grid.Column="1" Classes="header" Content="Instr."
+                        Command="{Binding SortByCommand}" CommandParameter="Instructions" />
+                <Button Grid.Column="2" Classes="header" Content="Blocks"
+                        Command="{Binding SortByCommand}" CommandParameter="Blocks" />
+                <Button Grid.Column="3" Classes="header" Content="Fns (user/tot)"
+                        Command="{Binding SortByCommand}" CommandParameter="TotalFunctions" />
+                <Button Grid.Column="4" Classes="header" Content="Max CC (u/t)"
+                        Command="{Binding SortByCommand}" CommandParameter="TotalMaxComplexity" />
+                <Button Grid.Column="5" Classes="header" Content="Anti-disasm"
+                        Command="{Binding SortByCommand}" CommandParameter="AntiDisasmFlags" />
+                <Button Grid.Column="6" Classes="header" Content="Mnem. %"
+                        Command="{Binding SortByCommand}" CommandParameter="MnemonicMatchPct" />
+                <Button Grid.Column="7" Classes="header" Content="Len. %"
+                        Command="{Binding SortByCommand}" CommandParameter="LengthMatchPct" />
+            </Grid>
+
+            <!-- Row-virtualized via ListBox's default panel. Each row is a flat
+                 Button so opening it into the other tabs is a plain command
+                 binding — no code-behind gesture handling needed. -->
+            <ListBox Grid.Row="1" ItemsSource="{Binding Rows}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="vm:BatchRowViewModel">
+                        <Button Classes="row"
+                                Command="{Binding $parent[ListBox].((vm:BatchViewModel)DataContext).OpenRowCommand}"
+                                CommandParameter="{Binding}"
+                                ToolTip.Tip="Open in Disassembly / CFG / Stats tabs">
+                            <Grid ColumnDefinitions="2*,90,80,90,90,90,80,80">
+                                <TextBlock Grid.Column="0" Text="{Binding BinaryName}" FontFamily="Consolas,Menlo,monospace" />
+                                <TextBlock Grid.Column="1" Text="{Binding Instructions}" />
+                                <TextBlock Grid.Column="2" Text="{Binding Blocks}" />
+                                <TextBlock Grid.Column="3" Text="{Binding FunctionsDisplay}" />
+                                <TextBlock Grid.Column="4" Text="{Binding MaxComplexityDisplay}" />
+                                <TextBlock Grid.Column="5" Text="{Binding AntiDisasmFlags}" />
+                                <TextBlock Grid.Column="6" Text="{Binding MnemonicMatchPct, StringFormat='{}{0:F1}%'}" />
+                                <TextBlock Grid.Column="7" Text="{Binding LengthMatchPct, StringFormat='{}{0:F1}%'}" />
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+
+        <StackPanel Grid.Row="4" IsVisible="{Binding !HasData}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+            <TextBlock Text="No batch run yet" FontSize="16" HorizontalAlignment="Center" Opacity="0.7" />
+            <TextBlock Text="Pick a corpus directory and click Run batch to analyze every binary in it."
+                       Opacity="0.5" HorizontalAlignment="Center" />
+        </StackPanel>
+    </Grid>
+</UserControl>

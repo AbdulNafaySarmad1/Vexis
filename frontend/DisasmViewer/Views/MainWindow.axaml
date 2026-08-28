@@ -1,0 +1,56 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DisasmViewer.ViewModels"
+        xmlns:views="using:DisasmViewer.Views"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="750"
+        x:Class="DisasmViewer.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="DisasmViewer — x86-64 Disassembler + CFG Engine"
+        Width="1280" Height="800">
+
+    <Design.DataContext>
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Padding="16,10" BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="8" Grid.Column="0">
+                    <TextBlock Text="DisasmViewer" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" />
+                    <TextBlock Text="x86-64 disassembler + CFG engine — frontend"
+                               Opacity="0.6" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8" Grid.Column="2" VerticalAlignment="Center">
+                    <TextBlock Text="Light" VerticalAlignment="Center" Opacity="0.7" />
+                    <ToggleSwitch IsChecked="{Binding IsDarkTheme}" OnContent="" OffContent="" />
+                    <TextBlock Text="Dark" VerticalAlignment="Center" Opacity="0.7" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TabControl>
+            <TabItem Header="1. Run analysis">
+                <views:RunView DataContext="{Binding Run}" />
+            </TabItem>
+            <TabItem Header="2. Disassembly">
+                <views:DisassemblyView DataContext="{Binding Disassembly}" />
+            </TabItem>
+            <TabItem Header="3. CFG">
+                <views:CfgView DataContext="{Binding Cfg}" />
+            </TabItem>
+            <TabItem Header="4. Stats">
+                <views:StatsView DataContext="{Binding Stats}" />
+            </TabItem>
+            <TabItem Header="5. Batch / Reports">
+                <views:BatchView DataContext="{Binding Batch}" />
+            </TabItem>
+            <TabItem Header="6. Export">
+                <views:ReportExportView DataContext="{Binding ReportExport}" />
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

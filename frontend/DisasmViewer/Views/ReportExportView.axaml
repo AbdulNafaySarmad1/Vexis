@@ -1,0 +1,78 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DisasmViewer.ViewModels"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="DisasmViewer.Views.ReportExportView"
+             x:DataType="vm:ReportExportViewModel">
+
+    <Grid RowDefinitions="Auto,Auto,*" Margin="24" MaxWidth="700" HorizontalAlignment="Stretch">
+
+        <TextBlock Grid.Row="0" Text="Export / open reports" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,4" />
+        <TextBlock Grid.Row="0" Text="Opens artifacts the backend already generated, in your OS default viewer/editor."
+                   Opacity="0.6" Margin="0,28,0,16" />
+
+        <Border Grid.Row="1"
+                IsVisible="{Binding ErrorMessage, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
+                Background="#33FF4444" BorderBrush="#FF4444" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
+            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="#FFB0B0" />
+        </Border>
+
+        <StackPanel Grid.Row="2" Spacing="20" IsVisible="{Binding HasAnyArtifacts}">
+
+            <StackPanel Spacing="8" IsVisible="{Binding CurrentMarkdownPath, Converter={x:Static conv:ObjectConverters.IsNotNull}}">
+                <TextBlock Text="Current analysis" FontWeight="SemiBold" />
+                <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="4" Padding="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding CurrentMarkdownPath}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                        <Button Grid.Column="1" Content="Open Markdown report" Margin="12,0,0,0"
+                                Command="{Binding OpenMarkdownCommand}" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Spacing="8" IsVisible="{Binding DotFiles.Count}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Text="Per-function DOT files" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="Open folder" Command="{Binding OpenDotFolderCommand}" />
+                </Grid>
+                <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="4" Padding="4" MaxHeight="260">
+                    <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding DotFiles}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Button Content="{Binding}" HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0"
+                                            FontFamily="Consolas,Menlo,monospace" FontSize="12"
+                                            Command="{Binding $parent[ItemsControl].((vm:ReportExportViewModel)DataContext).OpenDotFileCommand}"
+                                            CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Spacing="8" IsVisible="{Binding BatchMarkdownPath, Converter={x:Static conv:ObjectConverters.IsNotNull}}">
+                <TextBlock Text="Batch summary report" FontWeight="SemiBold" />
+                <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="4" Padding="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding BatchMarkdownPath}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                        <Button Grid.Column="1" Content="Open batch report" Margin="12,0,0,0"
+                                Command="{Binding OpenBatchMarkdownCommand}" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" IsVisible="{Binding !HasAnyArtifacts}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+            <TextBlock Text="Nothing to export yet" FontSize="16" HorizontalAlignment="Center" Opacity="0.7" />
+            <TextBlock Text="Run an analysis or a batch first — this screen just opens what the backend already wrote to disk."
+                       Opacity="0.5" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+        </StackPanel>
+    </Grid>
+</UserControl>

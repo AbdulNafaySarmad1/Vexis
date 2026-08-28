@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DisasmViewer.ViewModels"
+             xmlns:models="using:DisasmViewer.Models"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="600"
+             x:Class="DisasmViewer.Views.DisassemblyView"
+             x:DataType="vm:DisassemblyViewModel">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="16">
+
+        <TextBlock Grid.Row="0" Text="Disassembly" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12" />
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,8" IsVisible="{Binding HasData}">
+            <TextBox Grid.Column="0" Text="{Binding SearchText}"
+                      PlaceholderText="Filter by mnemonic or operands (e.g. 'call', 'mov rax')" />
+            <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0" Opacity="0.6"
+                       Text="{Binding FilteredCount, StringFormat='{}{0} shown'}" />
+        </Grid>
+
+        <!-- Column header, widths matched to the row template below. -->
+        <Grid Grid.Row="2" ColumnDefinitions="140,180,110,*" Margin="4,0,4,4" IsVisible="{Binding HasData}">
+            <TextBlock Grid.Column="0" Text="Address" FontWeight="SemiBold" Opacity="0.7" />
+            <TextBlock Grid.Column="1" Text="Bytes" FontWeight="SemiBold" Opacity="0.7" />
+            <TextBlock Grid.Column="2" Text="Mnemonic" FontWeight="SemiBold" Opacity="0.7" />
+            <TextBlock Grid.Column="3" Text="Operands" FontWeight="SemiBold" Opacity="0.7" />
+        </Grid>
+
+        <!-- Row-virtualized via ListBox's default VirtualizingStackPanel — handles
+             binaries with tens of thousands of instructions without a full
+             materialize-every-row cost. -->
+        <ListBox Grid.Row="3" ItemsSource="{Binding FilteredInstructions}" IsVisible="{Binding HasData}">
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="models:InstructionRecord">
+                    <Grid ColumnDefinitions="140,180,110,*">
+                        <TextBlock Grid.Column="0" Text="{Binding VaHex}" FontFamily="Consolas,Menlo,monospace" />
+                        <TextBlock Grid.Column="1" Text="{Binding Bytes}" FontFamily="Consolas,Menlo,monospace" Opacity="0.7" />
+                        <TextBlock Grid.Column="2" Text="{Binding Mnemonic}" FontFamily="Consolas,Menlo,monospace" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="3" Text="{Binding Operands}" FontFamily="Consolas,Menlo,monospace" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="3" IsVisible="{Binding !HasData}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+            <TextBlock Text="No analysis yet" FontSize="16" HorizontalAlignment="Center" Opacity="0.7" />
+            <TextBlock Text="Pick a binary on the Run tab to get started." Opacity="0.5" HorizontalAlignment="Center" />
+        </StackPanel>
+    </Grid>
+</UserControl>

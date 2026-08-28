@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DisasmViewer.ViewModels"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="500"
+             x:Class="DisasmViewer.Views.RunView"
+             x:DataType="vm:RunViewModel">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="24" MaxWidth="700" HorizontalAlignment="Stretch">
+
+        <TextBlock Grid.Row="0" Text="Pick a binary to analyze" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,16" />
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+            <TextBox Grid.Column="0" Text="{Binding SelectedFilePath}"
+                      PlaceholderText="No file selected — click Browse…" IsReadOnly="True" />
+            <Button Grid.Column="1" Content="Browse…" Margin="8,0,0,0" Command="{Binding PickFileCommand}" />
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,0,0,16" VerticalAlignment="Center">
+            <TextBlock Grid.Column="0" Text="Mode:" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableModes}"
+                      SelectedItem="{Binding SelectedMode}" Width="150" />
+            <Button Grid.Column="3" Content="Run analysis" Classes="accent" Padding="20,8"
+                    Command="{Binding RunAnalysisCommand}" IsEnabled="{Binding !IsRunning}" />
+        </Grid>
+
+        <StackPanel Grid.Row="3" Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsRunning}">
+                <ProgressBar IsIndeterminate="True" Width="200" />
+                <Button Content="Cancel" Command="{Binding CancelRunCommand}" />
+            </StackPanel>
+
+            <Border IsVisible="{Binding ErrorMessage, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
+                    Background="#33FF4444" BorderBrush="#FF4444" BorderThickness="1" CornerRadius="4" Padding="12">
+                <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="#FFB0B0" />
+            </Border>
+
+            <Border IsVisible="{Binding StatusMessage, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
+                    Background="#3344AA44" BorderBrush="#44AA44" BorderThickness="1" CornerRadius="4" Padding="12">
+                <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" />
+            </Border>
+
+            <TextBlock Text="Once analysis finishes, switch to the Disassembly, CFG, or Stats tabs to explore the results."
+                       Opacity="0.6" TextWrapping="Wrap" IsVisible="{Binding HasResult}" />
+        </StackPanel>
+    </Grid>
+</UserControl>
