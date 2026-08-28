@@ -180,6 +180,57 @@ results visually. It talks to the CLI over a process boundary (spawns it,
 reads the JSON it writes), never links against the Rust core — see
 [ADR 0005](docs/adr/0005-frontend-process-boundary.md).
 
+Every screenshot below is a real run against `corpus/tier1_straightline/pe_o0/bubble_sort.exe`
+and its neighboring tier, not a mockup — the numbers on screen are what the
+CLI actually reports.
+
+<table>
+<tr>
+<td width="50%">
+
+**Run analysis** — pick a binary, run it, get the top-line numbers back
+immediately.
+
+![Run analysis screen](images/01-run.png)
+
+</td>
+<td width="50%">
+
+**Disassembly** — the full instruction stream, virtualized and filterable
+by mnemonic or operand.
+
+![Disassembly screen](images/02-disassembly.png)
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+**CFG** — `bubbleSort`'s actual control-flow graph, rasterized through
+Graphviz with pan/zoom, taken-edges in green.
+
+![CFG screen](images/03-cfg.png)
+
+</td>
+<td width="50%">
+
+**Stats dashboard** — instruction-category breakdown, CFG edge-type counts,
+and per-function cyclomatic complexity, all bound straight to the backend's
+own `Stats` struct.
+
+![Stats dashboard screen](images/04-stats.png)
+
+</td>
+</tr>
+</table>
+
+**Batch / report browser** — a whole tier of the corpus (34 binaries) in one
+sortable, filterable grid: instructions, blocks, user-code-vs-total function
+counts, max cyclomatic complexity, anti-disassembly flags, and oracle
+accuracy percentages, side by side.
+
+![Batch report browser screen](images/05-batch.png)
+
 The CLI and GUI are two separate executables. Use whichever fits:
 
 ```

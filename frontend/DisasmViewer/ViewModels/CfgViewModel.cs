@@ -112,7 +112,24 @@ public partial class CfgViewModel : ViewModelBase
             }
         }
 
-        var dotFile = Path.Combine(dotDir, $"{fn.Name}.dot");
+        // fn.Name comes straight from the backend's JSON. It's always
+        // "sub_<hex>" in practice, but nothing enforces that on the wire —
+        // treat it as untrusted and refuse to let it walk outside dotDir
+        // (e.g. via "../../../etc/passwd") before it ever reaches Path.Combine.
+        var dotFileName = SafePathSegment.ToSafeFileName(fn.Name, ".dot");
+        if (dotFileName is null)
+        {
+            ErrorMessage = $"Function name '{fn.Name}' isn't a safe file name — refusing to look up a DOT file for it.";
+            return;
+        }
+
+        var dotDirFull = Path.GetFullPath(dotDir);
+        var dotFile = Path.GetFullPath(Path.Combine(dotDirFull, dotFileName));
+        if (!dotFile.StartsWith(dotDirFull + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+        {
+            ErrorMessage = $"Function name '{fn.Name}' resolved outside the expected directory — refusing to open it.";
+            return;
+        }
         if (!File.Exists(dotFile))
         {
             ErrorMessage = $"No DOT file found for function '{fn.Name}' at '{dotFile}'.";
@@ -122,8 +139,13 @@ public partial class CfgViewModel : ViewModelBase
         IsRendering = true;
         try
         {
-            var pngPath = Path.Combine(Path.GetTempPath(), "DisasmViewer", "cfg", $"{fn.Name}_{fn.Entry:x}.png");
-            Directory.CreateDirectory(Path.GetDirectoryName(pngPath)!);
+            // Already validated as a safe segment above (dotFileName); reuse
+            // the same sanitized stem rather than re-deriving from fn.Name.
+            var pngFileName = SafePathSegment.ToSafeFileName($"{Path.GetFileNameWithoutExtension(dotFileName)}_{fn.Entry:x}", ".png")
+                ?? $"{fn.Entry:x}.png"; // fn.Entry is a plain hex-formatted ulong, always safe
+            var cfgTempDir = Path.Combine(Path.GetTempPath(), "DisasmViewer", "cfg");
+            var pngPath = Path.Combine(cfgTempDir, pngFileName);
+            Directory.CreateDirectory(cfgTempDir);
             await _graphvizRenderer.RenderPngAsync(dotFile, pngPath).ConfigureAwait(true);
 
             await using var stream = File.OpenRead(pngPath);

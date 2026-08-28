@@ -87,6 +87,26 @@ public static class BackendLocator
         return null;
     }
 
+    /// <summary>
+    /// Last-resort, least-trusted lookup source (see the search order in the
+    /// class doc comment — this only runs after an explicit path, an env
+    /// var, a sibling of this app, and a dev-checkout walk-up have all
+    /// failed). PATH entries are outside this app's control, so this skips
+    /// two classes of entry that make PATH-based lookup exploitable rather
+    /// than merely convenient:
+    ///   - relative entries (most commonly a bare "." meaning "the current
+    ///     working directory"), since those resolve differently depending on
+    ///     where the app happens to have been launched from, and a directory
+    ///     the user just cd'd into is not a directory they've vetted for
+    ///     executables the same way a fixed PATH entry is;
+    ///   - any entry containing "..", for the same reason — it lets the
+    ///     resolved location depend on the current working directory even
+    ///     though the entry itself looks absolute.
+    /// This does not make running whatever is found here fully safe — a
+    /// compromised PATH is a compromised PATH — but it closes the most
+    /// common concrete instance of "attacker drops a same-named binary next
+    /// to whatever the user happens to run this from."
+    /// </summary>
     private static string? FindOnPath()
     {
         var pathVar = Environment.GetEnvironmentVariable("PATH");
@@ -98,6 +118,11 @@ public static class BackendLocator
         var separator = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ';' : ':';
         foreach (var dir in pathVar.Split(separator, StringSplitOptions.RemoveEmptyEntries))
         {
+            if (!Path.IsPathRooted(dir) || dir.Contains(".."))
+            {
+                continue;
+            }
+
             var candidate = Path.Combine(dir, ExeName);
             if (File.Exists(candidate))
             {

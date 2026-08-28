@@ -69,4 +69,45 @@ public sealed class BackendLocatorTests : IDisposable
             Directory.Delete(explicitDir, recursive: true);
         }
     }
+
+    [Fact]
+    public void Find_PathFallback_SkipsRelativeEntriesButUsesAbsoluteOnes()
+    {
+        // CWE-427 hardening: a relative PATH entry (classically a bare ".",
+        // meaning "the current working directory") must never be trusted as
+        // a source for the backend binary, since it resolves differently
+        // depending on where the app happens to be launched from. This test
+        // puts the real binary only reachable via a relative entry and a
+        // decoy absolute entry with nothing in it, then a second, real
+        // absolute entry with the binary — Find() must skip the relative
+        // entry and the empty absolute one, and land on the real one.
+        var pathDirWithBinary = Directory.CreateTempSubdirectory("disasmviewer-locator-path-").FullName;
+        var emptyPathDir = Directory.CreateTempSubdirectory("disasmviewer-locator-path-empty-").FullName;
+        var isolatedWalkDir = Directory.CreateTempSubdirectory("disasmviewer-locator-walk-").FullName;
+        var realBinaryPath = Path.Combine(pathDirWithBinary, ExeName);
+        File.WriteAllText(realBinaryPath, "");
+
+        var separator = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ';' : ':';
+        var originalPath = Environment.GetEnvironmentVariable("PATH");
+        var originalEnvBin = Environment.GetEnvironmentVariable("DISASM_CFG_BIN");
+        try
+        {
+            Environment.SetEnvironmentVariable("DISASM_CFG_BIN", null);
+            Environment.SetEnvironmentVariable(
+                "PATH",
+                string.Join(separator, "relative_dir_should_be_skipped", emptyPathDir, pathDirWithBinary));
+
+            var found = BackendLocator.Find(explicitPath: null, walkStartDir: isolatedWalkDir);
+
+            Assert.Equal(realBinaryPath, found);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PATH", originalPath);
+            Environment.SetEnvironmentVariable("DISASM_CFG_BIN", originalEnvBin);
+            Directory.Delete(pathDirWithBinary, recursive: true);
+            Directory.Delete(emptyPathDir, recursive: true);
+            Directory.Delete(isolatedWalkDir, recursive: true);
+        }
+    }
 }
